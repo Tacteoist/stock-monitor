@@ -12,7 +12,7 @@ portfolio = [
 
 EMAIL_ADDRESS = os.environ["EMAIL_ADDRESS"]
 EMAIL_PASSWORD = os.environ["EMAIL_PASSWORD"]
-RECIPIENT = EMAIL_ADDRESS
+RECIPIENT = [EMAIL_ADDRESS,"monyyong@att.net"]
 
 def send_email(subject, body):
     msg = MIMEText(body)
