@@ -200,21 +200,28 @@ buy_signals.sort(key=lambda x:x[3],reverse=True)
 top_buys=buy_signals[:5]
 
 # ---------------- EMAIL ---------------- #
-today=datetime.now().strftime("%Y-%m-%d")
-body=f"📊 PORTFOLIO OPPORTUNITY RADAR – {today}\n\n"
-if market_alert: body+=market_alert+"\n\n"
+today = datetime.now().strftime("%Y-%m-%d")
+body = f"📊 PORTFOLIO OPPORTUNITY RADAR – {today}\n\n"
+
+# ⭐ TOP BUY SIGNALS FIRST
+body += "⭐ TOP BUY SIGNALS\n\n"
+for i, (ticker, price, pct, score) in enumerate(top_buys, 1):
+    body += f"{i}. {ticker} – ${price:.2f}\n   Score: {score}\n   {pct:.2f}% above 52W low\n\n"
+
+# Market alert
+if market_alert: 
+    body += market_alert + "\n\n"
+
+# Alerts
 if alerts:
-    body+="🚨 ALERTS\n\n"
-    for i,(ticker,price,msg) in enumerate(alerts,1):
-        body+=f"{i}. {ticker} – ${price:.2f}\n   {msg}\n\n"
+    body += "🚨 ALERTS\n\n"
+    for i, (ticker, price, msg) in enumerate(alerts, 1):
+        body += f"{i}. {ticker} – ${price:.2f}\n   {msg}\n\n"
 
-body+="\n📉 CLOSEST TO 52W LOW\n\n"
-for i,(ticker,price,pct) in enumerate(top_radar,1):
-    body+=f"{i}. {ticker} – ${price:.2f}\n   {pct:.2f}% above 52W low\n\n"
-
-body+="\n⭐ TOP BUY SIGNALS\n\n"
-for i,(ticker,price,pct,score) in enumerate(top_buys,1):
-    body+=f"{i}. {ticker} – ${price:.2f}\n   Score: {score}\n   {pct:.2f}% above 52W low\n\n"
+# Closest to 52W low
+body += "\n📉 CLOSEST TO 52W LOW\n\n"
+for i, (ticker, price, pct) in enumerate(top_radar, 1):
+    body += f"{i}. {ticker} – ${price:.2f}\n   {pct:.2f}% above 52W low\n\n"
 
 if alerts or market_alert:
     send_email(subject=f"Portfolio Opportunity Radar – {today}", body=body)
