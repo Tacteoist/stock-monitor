@@ -6,7 +6,7 @@ on:
     - cron: '30 14 * * 1-5'  # 10:30 AM ET
     - cron: '0 18 * * 1-5'   # 1:00 PM ET
     - cron: '45 19 * * 1-5'  # 3:45 PM ET
-  workflow_dispatch:          # Allow manual runs
+  workflow_dispatch:
 
 jobs:
   monitor:
@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+
+      - name: Show repo structure (debug)
+        run: |
+          echo "Listing all files:"
+          ls -R
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -31,7 +36,7 @@ jobs:
           EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
-          python scripts/portfolio_monitor.py
+          python monitor.py
 
       - name: Commit & Push Cache Files
         env:
