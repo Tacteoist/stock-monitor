@@ -113,46 +113,37 @@ os.makedirs(os.path.dirname(INTRADAY_CACHE_FILE), exist_ok=True)
 with open(INTRADAY_CACHE_FILE,"w") as f:
     json.dump(intraday_cache,f)
 
-# ---------- ALERTS & SIGNALS ----------
+# ---------- ALERTS & TOP BUYS ----------
 alerts = []
-radar = []
 buy_signals = []
-crash_count = 0
-panic_count = 0
 
 for ticker, closes in intraday_data.items():
     try:
-        if len(closes) < 20: continue
+        if len(closes) < 2: continue
         current_price = closes.iloc[-1]
         yesterday = closes.iloc[-2]
         daily_drop = (yesterday - current_price)/yesterday*100
 
-        # Crash/Panic
+        # Crash/Panic alerts
         if daily_drop >= 10:
-            panic_count += 1
             if alerted.get(ticker+"_panic") != str(current_price):
                 alerts.append((ticker,current_price,f"🔥 PANIC DROP {daily_drop:.2f}%"))
                 alerted[ticker+"_panic"] = str(current_price)
         elif daily_drop >= 5:
-            crash_count += 1
             if alerted.get(ticker+"_crash") != str(current_price):
                 alerts.append((ticker,current_price,f"💥 CRASH {daily_drop:.2f}%"))
                 alerted[ticker+"_crash"] = str(current_price)
 
-        # 52-week low
-        low_52 = closes.min()
-        pct_from_low = (current_price - low_52)/low_52*100
-        radar.append((ticker,current_price,pct_from_low))
-
         # Dividend trap
         annual_div = annual_dividends.get(ticker,0)
         div_yield = (annual_div/current_price*100) if annual_div>0 else 0
+        pct_from_low = (current_price - closes.min())/closes.min()*100
         trap_score = sum([div_yield>=10, pct_from_low<=5, daily_drop>=5])
         if trap_score >= 2:
             alerts.append((ticker,current_price,
                            f"⚠️ DIVIDEND TRAP RISK – Yield {div_yield:.1f}% | {pct_from_low:.1f}% above 52W low"))
 
-        # Buy signal score
+        # Buy signal score for Top Buys
         score = 0
         if pct_from_low <= 10: score += 2
         if pct_from_low <= 5: score += 3
@@ -167,34 +158,18 @@ for ticker, closes in intraday_data.items():
 for ticker in dividend_cuts:
     alerts.append((ticker,0,"🚨 DIVIDEND CUT (Dividend dropped to $0)"))
 
-# Market panic
-portfolio_size = len(portfolio)
-panic_ratio = panic_count/portfolio_size
-crash_ratio = crash_count/portfolio_size
-market_alert=""
-if panic_ratio >= 0.05:
-    market_alert = "🔥 MARKET PANIC MODE"
-elif crash_ratio >= 0.15:
-    market_alert = "⚠️ MARKET SELL-OFF"
-
-# Rankings
-radar.sort(key=lambda x:x[2])
-top_radar = radar[:10]
-buy_signals.sort(key=lambda x:x[3], reverse=True)
+# ---------- TOP BUYS ----------
+buy_signals.sort(key=lambda x: x[3], reverse=True)
 top_buys = buy_signals[:5]
 
 # ---------- EMAIL ----------
 today = datetime.now().strftime("%Y-%m-%d")
-body = f"📊 PORTFOLIO OPPORTUNITY RADAR – {today}\n\n"
+body = f"📊 PORTFOLIO ALERTS – {today}\n\n"
 
 # Top Buy Signals first
 body += "⭐ TOP BUY SIGNALS\n\n"
 for i,(ticker,price,pct,score) in enumerate(top_buys,1):
     body += f"{i}. {ticker} – ${price:.2f}\n   Score: {score}\n   {pct:.2f}% above 52W low\n\n"
-
-# Market alert
-if market_alert:
-    body += market_alert + "\n\n"
 
 # Alerts
 if alerts:
@@ -202,13 +177,8 @@ if alerts:
     for i,(ticker,price,msg) in enumerate(alerts,1):
         body += f"{i}. {ticker} – ${price:.2f}\n   {msg}\n\n"
 
-# Closest to 52W low
-body += "\n📉 CLOSEST TO 52W LOW\n\n"
-for i,(ticker,price,pct) in enumerate(top_radar,1):
-    body += f"{i}. {ticker} – ${price:.2f}\n   {pct:.2f}% above 52W low\n\n"
-
-if alerts or market_alert:
-    send_email(subject=f"Portfolio Opportunity Radar – {today}", body=body)
+if top_buys or alerts:
+    send_email(subject=f"Portfolio Alerts – {today}", body=body)
 
 # Save alert state
 os.makedirs(os.path.dirname(ALERT_STATE_FILE), exist_ok=True)
