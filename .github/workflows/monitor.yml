@@ -2,7 +2,10 @@ name: Stock Monitor
 
 on:
   schedule:
-    - cron: '20 21 * * 1-5'  # 4:20 PM Eastern (21:20 UTC)
+    # Runs 3x per day, Monday-Friday
+    - cron: '30 14 * * 1-5'   # 10:30 AM ET
+    - cron: '0 17 * * 1-5'    # 1:00 PM ET
+    - cron: '45 19 * * 1-5'   # 3:45 PM ET
   workflow_dispatch:
 
 jobs:
