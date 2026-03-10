@@ -78,7 +78,7 @@ except:
 
 annual_dividends,dividend_cuts=load_dividend_cache()
 
-# ---------------- INTRADAY DATA ---------------- #
+# ---------------- INTRADAY CACHE ---------------- #
 intraday_cache_file = "intraday_cache.json"
 try:
     with open(intraday_cache_file,"r") as f:
@@ -86,30 +86,40 @@ try:
 except:
     intraday_cache={}
 
-print("Downloading intraday market data...")
+print("Fetching intraday market data...")
 
-def fetch_prices(tickers_batch):
+def fetch_intraday(tickers_batch):
     batch_data={}
     for ticker in tickers_batch:
         try:
             stock = yf.Ticker(ticker)
-            hist = stock.history(period="1d", interval="15m")
+            last_time_str = intraday_cache.get(ticker, {}).get("last_timestamp")
+            if last_time_str:
+                last_time = datetime.fromisoformat(last_time_str)
+                # add 1 minute to avoid fetching duplicate candle
+                start_time = last_time + timedelta(minutes=1)
+                hist = stock.history(period="1d", interval="15m", start=start_time)
+            else:
+                hist = stock.history(period="1d", interval="15m")
             if hist.empty:
                 continue
             batch_data[ticker] = hist["Close"].dropna()
-            # Cache latest price
-            intraday_cache[ticker] = float(batch_data[ticker].iloc[-1])
-            time.sleep(0.5)  # small delay to reduce rate-limit risk
+            # update cache
+            intraday_cache[ticker] = {
+                "last_price": float(batch_data[ticker].iloc[-1]),
+                "last_timestamp": batch_data[ticker].index[-1].to_pydatetime().isoformat()
+            }
+            time.sleep(0.5)  # reduce rate-limit risk
         except:
             continue
     return batch_data
 
-# Split portfolio into chunks of 15 tickers
+# Split portfolio into chunks to reduce throttling
 chunk_size=15
 data={}
 for i in range(0,len(portfolio),chunk_size):
     batch = portfolio[i:i+chunk_size]
-    batch_data = fetch_prices(batch)
+    batch_data = fetch_intraday(batch)
     data.update(batch_data)
 
 # Save intraday cache
@@ -198,6 +208,7 @@ radar.sort(key=lambda x:x[2])
 top_radar=radar[:10]
 buy_signals.sort(key=lambda x:x[3],reverse=True)
 top_buys=buy_signals[:5]
+
 
 # ---------------- EMAIL ---------------- #
 today = datetime.now().strftime("%Y-%m-%d")
